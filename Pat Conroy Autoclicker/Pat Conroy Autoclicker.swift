@@ -70,14 +70,14 @@ class loop {
     private var timer: DispatchSourceTimer?
     private let queue = DispatchQueue(label: "autoclicker.timer")
     
-    func start(_ interaction: Interaction, interval invl: TimeInterval, minutes: Bool) {
+    func start(_ interaction: Interaction, interval invl: TimeInterval, minutes: Bool, mouseLocation: CGPoint?) {
         stop() // cancel any existing timer
         let calculatedInterval = if minutes { invl*60 } else { invl }
         
         timer = DispatchSource.makeTimerSource(queue: queue)
         timer?.schedule(deadline: .now(), repeating: calculatedInterval)
         timer?.setEventHandler { [weak self] in
-            self?.performAction(interaction)
+            self?.performAction(interaction, mouseLocation: mouseLocation)
         }
         timer?.resume()
         
@@ -91,10 +91,10 @@ class loop {
     }
     
     
-    private func performAction(_ interaction: Interaction) {//MARK: PERFORM
+    private func performAction(_ interaction: Interaction, mouseLocation: CGPoint?) {//MARK: PERFORM
         switch interaction {
         case .leftMouseButton:
-            let mousePoint = Interact.shared.currentMouseLocationForCGEvent()
+            let mousePoint = mouseLocation ?? Interact.shared.currentMouseLocationForCGEvent()
             Interact.shared.simulateMouseClick(at: mousePoint)
         case .spacebar:
             Interact.shared.pressSpacebar()
@@ -105,12 +105,39 @@ class loop {
 
 @main
 struct PatConroyAutoclicker: App {
+    
     @State var clicking = false
-    @State private var pulse = false
-
+    @State var activeView = 1
+    @State var clickLocation: CGPoint? = nil
+    @State var interactionType: Interaction = .leftMouseButton
+    @State var clickInterval = 1.0
+    @State var useMinutes = false
+    @State var hotkey: HotKey? = nil
+    
+    @Environment(\.scenePhase) private var scenePhase
+    
     var body: some Scene {
         MenuBarExtra {
-            ContentView(clicking: $clicking)
+            ZStack {
+                switch activeView {
+                case 2:
+                    mousePositionSheetView(clickLocation: $clickLocation, activeView: $activeView)
+                        .onChange(of: scenePhase) { _, newPhase in
+                            if newPhase == .background {
+                                activeView=1
+                            }
+                        }
+                default: ContentView(
+                    clickInterval: $clickInterval,
+                    useMinutes: $useMinutes,
+                    hotkey: $hotkey,
+                    interactionType: $interactionType,
+                    clickLocation: $clickLocation,
+                    clicking: $clicking,
+                    activeView: $activeView
+                )
+                }
+            }
             .padding()
         } label: {
             Image(systemName: clicking ? "computermouse.fill" : "computermouse")
