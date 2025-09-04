@@ -28,3 +28,9 @@ please contact by opening either an Issue (for problems/bugs) or a Discussion (f
 \
 \
 all rights reserved, except pat conroy's face/photo and the sf symbols
+
+
+### go play Pat Conroy Clicker
+play here: https://lucas-jennings.github.io/Pat-Conroy-clicker/
+
+repository: https://github.com/Lucas-Jennings/Pat-Conroy-clicker
