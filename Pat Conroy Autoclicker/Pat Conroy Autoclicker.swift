@@ -10,10 +10,20 @@ import Carbon.HIToolbox
 
 typealias Colour = Color
 
+class ClickingClass: ObservableObject {
+	static let shared = ClickingClass()
+	@Published var clicking: Bool = false
+}
+
 enum Interaction {
     case leftMouseButton
     case spacebar
 }
+enum RepeatType: Equatable, Hashable {
+    case untilStopped
+    case xTimes
+}
+
 class Interact {
     static let shared = Interact()
     
@@ -69,79 +79,134 @@ class loop {
     
     private var timer: DispatchSourceTimer?
     private let queue = DispatchQueue(label: "autoclicker.timer")
-    
-    func start(_ interaction: Interaction, interval invl: TimeInterval, minutes: Bool, mouseLocation: CGPoint?) {
+	private var timesClicked: Int? = nil
+
+    func start(
+		_ interaction: Interaction,
+		interval invl: TimeInterval,
+		minutes: Bool,
+		mouseLocation mLoc: CGPoint?,
+		repeatType: RepeatType,
+		repeatTimes: Int
+	) {
         stop() // cancel any existing timer
         let calculatedInterval = if minutes { invl*60 } else { invl }
-        
+		timesClicked = if repeatType == .xTimes { 0 } else { nil }
+
         timer = DispatchSource.makeTimerSource(queue: queue)
         timer?.schedule(deadline: .now(), repeating: calculatedInterval)
         timer?.setEventHandler { [weak self] in
-            self?.performAction(interaction, mouseLocation: mouseLocation)
+            self?.performAction(interaction, mouseLocation: mLoc, repeatType: repeatType, repeatTimes: repeatTimes)
         }
         timer?.resume()
-        
+
+		ClickingClass.shared.clicking = true
         print("Loop started with interval \(invl)s")
     }
     
     func stop() {
         timer?.cancel()
         timer = nil
+		timesClicked = nil
+		Task { @MainActor in
+			ClickingClass.shared.clicking = false
+		}
         print("Loop stopped")
     }
     
     
-    private func performAction(_ interaction: Interaction, mouseLocation: CGPoint?) {//MARK: PERFORM
-        switch interaction {
-        case .leftMouseButton:
-            let mousePoint = mouseLocation ?? Interact.shared.currentMouseLocationForCGEvent()
-            Interact.shared.simulateMouseClick(at: mousePoint)
-        case .spacebar:
-            Interact.shared.pressSpacebar()
-        }
+	private func performAction(_ interaction: Interaction, mouseLocation: CGPoint?, repeatType: RepeatType, repeatTimes: Int) {//MARK: PERFORM
+
+		//check
+		if repeatType == .xTimes {
+			if timesClicked == nil {
+				stop()
+				NSLog("TimesClicked was nil when it shouldn't've been!\ntimesClicked: \(timesClicked)\nrepeatType: \(repeatType)\nrepeatTimes: \(repeatTimes)")
+				return
+			} else {
+				if timesClicked! >= repeatTimes {
+					print("Stopping clicking, after \(timesClicked) of \(repeatTimes) clicks.")
+					stop()
+					return
+				}
+			}
+		}
+
+		//perform
+		switch interaction {
+		case .leftMouseButton:
+			let mousePoint = mouseLocation ?? Interact.shared.currentMouseLocationForCGEvent()
+			Interact.shared.simulateMouseClick(at: mousePoint)
+		case .spacebar:
+			Interact.shared.pressSpacebar()
+		}
+
+		//log & re-check
+		if repeatType == .xTimes {
+			if timesClicked == nil {
+				stop()
+				NSLog("TimesClicked was nil when it shouldn't've been!\ntimesClicked: \(timesClicked)\nrepeatType: \(repeatType)\nrepeatTimes: \(repeatTimes)")
+			} else {
+
+				//log
+				timesClicked! += 1
+				print(String(describing: timesClicked))
+				//re-check
+				if timesClicked! >= repeatTimes {
+					print("Stopping clicking, after \(timesClicked) of \(repeatTimes) clicks.")
+					stop()
+					return
+				}
+
+			}
+		}
+
     }
 }
 
-
 @main
 struct PatConroyAutoclicker: App {
-    
-    @State var clicking = false
-    @State var activeView = 1
-    @State var clickLocation: CGPoint? = nil
+
+	@StateObject var Clicking = ClickingClass.shared
+	@State var clickLocation: CGPoint? = nil
+
+	@State var clickInterval = 1.0
+	@State var useMinutes = false
+
+	@State var repeatType: RepeatType = .untilStopped
+	@State var repeatTimes = 10
+
     @State var interactionType: Interaction = .leftMouseButton
-    @State var clickInterval = 1.0
-    @State var useMinutes = false
+
     @State var hotkey: HotKey? = nil
-    
-    @Environment(\.scenePhase) private var scenePhase
     
     var body: some Scene {
         MenuBarExtra {
             ZStack {
-                switch activeView {
-                case 2:
-                    mousePositionSheetView(clickLocation: $clickLocation, activeView: $activeView)
-                        .onChange(of: scenePhase) { _, newPhase in
-                            if newPhase == .background {
-                                activeView=1
-                            }
-                        }
-                default: ContentView(
+                ContentView(
                     clickInterval: $clickInterval,
                     useMinutes: $useMinutes,
                     hotkey: $hotkey,
                     interactionType: $interactionType,
                     clickLocation: $clickLocation,
-                    clicking: $clicking,
-                    activeView: $activeView
-                )
-                }
+					repeatType: $repeatType,
+					repeatTimes: $repeatTimes
+				).environmentObject(Clicking)
             }
             .padding()
         } label: {
-            Image(systemName: clicking ? "computermouse.fill" : "computermouse")
+			Image(systemName: Clicking.clicking ? "computermouse.fill" : "computermouse")
         }
         .menuBarExtraStyle(.window)
+        
+		Window("Settings", id: "settings") {
+			FullscreenSettingsView(
+				interactionType: $interactionType,
+				clickLocation: $clickLocation,
+				repeatType: $repeatType,
+				repeatTimes: $repeatTimes
+			).environmentObject(Clicking)
+			.frame(width: 251, height: 125).padding()
+		}.windowResizability(.contentSize)
     }
 }
