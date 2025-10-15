@@ -92,14 +92,14 @@ class loop {
         await stop() // cancel any existing timer
         let calculatedInterval = if minutes { invl*60 } else { invl }
 		timesClicked = if repeatType == RepeatType.xTimes { 0 } else { nil }
-		/*
+
         timer = DispatchSource.makeTimerSource(queue: queue)
         timer?.schedule(deadline: .now(), repeating: calculatedInterval)
         timer?.setEventHandler { [weak self] in
             self?.performAction(interaction, mouseLocation: mLoc, repeatType: repeatType, repeatTimes: repeatTimes)
         }
         timer?.resume()
-		 */
+
 		await MainActor.run {
 			ClickingClass.shared.clicking = true
 		}
