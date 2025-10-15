@@ -68,7 +68,7 @@ struct ContentView: View {
             //MARK: Trigger
             if Clicking.clicking {
                 Button {
-                    loop.shared.stop()
+					Task { await loop.shared.stop() }
                     print("stopped")
                 } label: {
                     Text("Clicking...")
@@ -77,14 +77,14 @@ struct ContentView: View {
                 
             } else {
                 Button {
-                    loop.shared.start(
-                        interactionType,
-                        interval: clickInterval,
-                        minutes: useMinutes,
-                        mouseLocation: clickLocation,
+					Task { await loop.shared.start(
+						interactionType,
+						interval: clickInterval,
+						minutes: useMinutes,
+						mouseLocation: clickLocation,
 						repeatType: repeatType,
 						repeatTimes: repeatTimes
-                    )
+					) }
                     print("started")
                 } label: {
                     Text("Not Clicking")
@@ -119,16 +119,17 @@ struct ContentView: View {
                 if recordingKeystroke { return }
 				print("Hotkey pressed")
                 if !Clicking.clicking {
-                    loop.shared.start(
-                        interactionType,
-                        interval: clickInterval,
-                        minutes: useMinutes,
-                        mouseLocation: clickLocation,
+					Task { await loop.shared.start(
+						interactionType,
+						interval: clickInterval,
+						minutes: useMinutes,
+						mouseLocation: clickLocation,
 						repeatType: repeatType,
 						repeatTimes: repeatTimes
-                    )
+					)
+					}
                 } else {
-                    loop.shared.stop()
+					Task { await loop.shared.stop() }
                 }
             }))
     }

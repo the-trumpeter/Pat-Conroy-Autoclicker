@@ -1,5 +1,5 @@
 //
-//  menuBarAppTemplateApp.swift
+//FIXME:  menuBarAppTemplateApp.swift
 //  menuBarAppTemplate
 //
 //  Created by Gill Palmer on 29/8/2025.
@@ -82,16 +82,16 @@ class loop {
 	private var timesClicked: Int? = nil
 
     func start(
-		_ interaction: Interaction,
-		interval invl: TimeInterval,
-		minutes: Bool,
-		mouseLocation mLoc: CGPoint?,
-		repeatType: RepeatType,
-		repeatTimes: Int
-	) {
-        stop() // cancel any existing timer
+        _ interaction: Interaction,
+        interval invl: TimeInterval,
+        minutes: Bool,
+        mouseLocation mLoc: CGPoint?,
+        repeatType: RepeatType,
+        repeatTimes: Int
+    ) async {
+        await stop() // cancel any existing timer
         let calculatedInterval = if minutes { invl*60 } else { invl }
-		timesClicked = if repeatType == .xTimes { 0 } else { nil }
+		timesClicked = if repeatType == RepeatType.xTimes { 0 } else { nil }
 
         timer = DispatchSource.makeTimerSource(queue: queue)
         timer?.schedule(deadline: .now(), repeating: calculatedInterval)
@@ -100,17 +100,31 @@ class loop {
         }
         timer?.resume()
 
-		ClickingClass.shared.clicking = true
+		await MainActor.run {
+			ClickingClass.shared.clicking = true
+		}
+		/*
+		 print("""
+			STARTING:
+				interc: \(interaction)
+				invl: \(invl)
+				mins?: \(minutes)
+				mLoc: \(String(describing: mLoc))
+				rType: \(repeatType)
+				rTimes: \(repeatTimes)
+			""")
+		 */
         print("Loop started with interval \(invl)s")
     }
     
-    func stop() {
-        timer?.cancel()
+    func stop() async {
+        print("Stopping...")
+        if timer != nil { timer!.cancel(); print("cancelled timer") }
         timer = nil
-		timesClicked = nil
-		Task { @MainActor in
-			ClickingClass.shared.clicking = false
-		}
+        timesClicked = nil
+        await MainActor.run { // Ensure logic values are in sync
+            ClickingClass.shared.clicking = false
+        }
         print("Loop stopped")
     }
     
@@ -118,15 +132,15 @@ class loop {
 	private func performAction(_ interaction: Interaction, mouseLocation: CGPoint?, repeatType: RepeatType, repeatTimes: Int) {//MARK: PERFORM
 
 		//check
-		if repeatType == .xTimes {
+		if repeatType == RepeatType.xTimes {
 			if timesClicked == nil {
-				stop()
-				NSLog("TimesClicked was nil when it shouldn't've been!\ntimesClicked: \(timesClicked)\nrepeatType: \(repeatType)\nrepeatTimes: \(repeatTimes)")
+				Task { await self.stop() }
+				NSLog("TimesClicked was nil when it shouldn't've been!\ntimesClicked: \(String(describing: timesClicked))\nrepeatType: \(repeatType)\nrepeatTimes: \(repeatTimes)")
 				return
 			} else {
 				if timesClicked! >= repeatTimes {
-					print("Stopping clicking, after \(timesClicked) of \(repeatTimes) clicks.")
-					stop()
+					print("Stopping clicking, after \(String(describing: timesClicked)) of \(repeatTimes) clicks.")
+					Task { await self.stop() }
 					return
 				}
 			}
@@ -144,8 +158,8 @@ class loop {
 		//log & re-check
 		if repeatType == .xTimes {
 			if timesClicked == nil {
-				stop()
-				NSLog("TimesClicked was nil when it shouldn't've been!\ntimesClicked: \(timesClicked)\nrepeatType: \(repeatType)\nrepeatTimes: \(repeatTimes)")
+				Task { await self.stop() }
+				NSLog("TimesClicked was nil when it shouldn't've been!\ntimesClicked: \(String(describing: timesClicked))\nrepeatType: \(repeatType)\nrepeatTimes: \(repeatTimes)")
 			} else {
 
 				//log
@@ -153,8 +167,8 @@ class loop {
 				print(String(describing: timesClicked))
 				//re-check
 				if timesClicked! >= repeatTimes {
-					print("Stopping clicking, after \(timesClicked) of \(repeatTimes) clicks.")
-					stop()
+					print("Stopping clicking, after \(String(describing: timesClicked)) of \(repeatTimes) clicks.")
+					Task { await self.stop() }
 					return
 				}
 
@@ -166,8 +180,6 @@ class loop {
 
 @main
 struct PatConroyAutoclicker: App {
-
-	@StateObject var Clicking = ClickingClass.shared
 	@State var clickLocation: CGPoint? = nil
 
 	@State var clickInterval = 1.0
@@ -191,11 +203,11 @@ struct PatConroyAutoclicker: App {
                     clickLocation: $clickLocation,
 					repeatType: $repeatType,
 					repeatTimes: $repeatTimes
-				).environmentObject(Clicking)
-            }
+				).environmentObject(ClickingClass.shared)
+			}.onAppear() { print("Appeared") }
             .padding()
         } label: {
-			Image(systemName: Clicking.clicking ? "computermouse.fill" : "computermouse")
+			Image(systemName: ClickingClass.shared.clicking ? "computermouse.fill" : "computermouse")
         }
         .menuBarExtraStyle(.window)
         
@@ -205,8 +217,9 @@ struct PatConroyAutoclicker: App {
 				clickLocation: $clickLocation,
 				repeatType: $repeatType,
 				repeatTimes: $repeatTimes
-			).environmentObject(Clicking)
+			).environmentObject(ClickingClass.shared)
 			.frame(width: 251, height: 125).padding()
 		}.windowResizability(.contentSize)
     }
 }
+

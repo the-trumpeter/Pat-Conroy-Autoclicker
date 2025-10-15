@@ -97,7 +97,7 @@ struct FullscreenSettingsView: View {
                         ).frame(width: 40).labelsHidden()
                         Text("times")
                     }.tag(RepeatType.xTimes)
-                    
+
                 }.pickerStyle(.inline).labelsHidden()
                 
                 Spacer()
