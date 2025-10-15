@@ -111,7 +111,7 @@ struct ContentView: View {
             
             //MARK: Quit
             Button { NSApplication.shared.terminate(self) } label: {
-                Text("Quit v1.2").frame(maxWidth: .infinity)
+                Text("Quit v1.2.1").frame(maxWidth: .infinity)
             }.buttonStyle(.borderless)
             
         }.frame(width: 160, height: 141)
